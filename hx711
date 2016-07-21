@@ -1,121 +1,129 @@
-
-#include <Wire.h>
-#include <ESP8266WiFi.h>
-#include <Ticker.h>
-
 #include "HX711.h"
+#include <ESP8266WiFi.h>
+ 
+// replace with your channel's thingspeak API key, 
+String apiKey = "HZDL0R0CIU6N61WX";
+const char* ssid = "VWC_3f_new";
+const char* password = "88888888"; 
+const char* server = "api.thingspeak.com";
+//#define DHTPIN 2 // what pin we're connected to
+#define _baudrate   115200
 
-
-int counter = 0;
-
-// your network SSID (name)
-char ssid[] = "<VWC_3f_new>";
-// your network password
-char pass[] = "<88888888>"; 
-
-char thingspeakKey[] = "<GG6C6A9ZQ2MGSEE2>";
-
-const char* host = "api.thingspeak.com";
-
-// NodeMCU pins 
-HX711 scale(12, 14);    // parameter "gain" is ommited; the default value 128 is used by the library
-
-// this array keeps function pointers to all frames
-// frames are the single views that slide from right to left
-///void (*frameCallbacks[2])(int x, int y) = {drawFrame1, drawFrame2};
-
-// how many frames are there?
-///int frameCount = 3;
-
-// on frame is currently displayed
-///int currentFrame = 0;
-
-///float emptyWeight = 550.f;
-///float fullWeight = 1000.f;
-///float waterMax = fullWeight - emptyWeight;
-float currentWeight = 0;
-
-Ticker ticker;
-bool isReadyForThingspeakUpdate = true;
-
-void setup() {
+ 
+HX711 scale(12, 14, 128);  
+WiFiClient client;
+   
+ 
+void setup() {                
   Serial.begin(115200);
-  Serial.println("Starting up...");
-  // The HX711 functions do not yield. Watchdog would reset
-  ESP.wdtDisable();
+  delay(10);
   
-  scale.set_scale(2158.45f); 
-  scale.tare();
-  currentWeight = scale.get_units(1);
-  
-  ///display.init();
-  // set the drawing functions
-  ///display.setFrameCallbacks(2, frameCallbacks);
-  // how many ticks does a slide of frame take?
-  ///display.setFrameTransitionTicks(10);
-  ///display.setFrameWaitTicks(200);
-  ///display.clear();
-  ///display.display();
-  
-  WiFi.begin(ssid, pass);
-  
-  int counter = 0;
+  WiFi.begin(ssid, password);
+ 
+  Serial.println();
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+   
+  WiFi.begin(ssid, password);
+   
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
-    ///display.clear();
-    ///display.drawXbm(34,10, 60, 36, WiFi_Logo_bits);
-    ///drawSpinner(3, counter % 3);
-    ///display.display();
-    counter++;
   }
-  Serial.println("");  
+  Serial.println("");
+  Serial.println("WiFi connected");
 
-  // update the weather information every 10 mintues only
-  // forecast.io only allows 1000 calls per day
-  ticker.attach(60, setReadyForThingspeakUpdate);
-
-}
-
-void setReadyForThingspeakUpdate() {
-  isReadyForThingspeakUpdate = true;  
-}
-
-void updateThingspeak() {
-  Serial.println("Updating thingspeak...");
-  WiFiClient client;
-  const int httpPort = 80;
-  if (!client.connect(host, httpPort)) {
-    Serial.println("connection failed");
-    return;
-  }
+//HX711      
+  Serial.begin(115200);
+  Serial.println("HX711 Demo");
+  Serial.println("Before setting up the scale:");
+  Serial.print("read: \t\t");
+  Serial.println(scale.read());      // print a raw reading from the ADC
+  Serial.print("read average: \t\t");
   
-  //float currentWater = max(0, currentWeight - emptyWeight);
-  //float currentLevel = currentWater / waterMax;
+  ESP.wdtDisable();
+  Serial.println(scale.read_average(20));   // print the average of 20 readings from the ADC
+  ESP.wdtEnable(2000);
 
-  String url = "/update?key=";
-  url += thingspeakKey;
-  url += "&field1=";
-  url += String(currentWeight);
-  //url += "&field2=";
-  //url += String(currentWater);
-  //url += "&field3=";
-  //url += String(currentLevel * 100);
-
-  // This will send the request to the server
-  String request = String("GET ") + url + " HTTP/1.1\r\n" +
-               "Host: " + host + "\r\n" + 
-               "Connection: close\r\n\r\n";
-  Serial.println(request);
-  client.print(request);
-  delay(1000);
+  Serial.print("get value: \t\t");
+  Serial.println(scale.get_value(5));   // print the average of 5 readings from the ADC minus the tare weight (not set yet)
+  Serial.print("get units: \t\t");
   
-  // Read all the lines of the reply from server and print them to Serial
-  while(client.available()){
-    String line = client.readStringUntil('\r');
-    Serial.print(line);
-  }
+  ESP.wdtDisable();
+  Serial.println(scale.get_units(5), 1);  // print the average of 5 readings from the ADC minus tare weight (not set) divided
+// by the SCALE parameter (not set yet)
+  ESP.wdtEnable(2000);
 
+  scale.set_scale(2280.f);    // this value is obtained by calibrating the scale with known weights; see the README for details
+  scale.tare();               // reset the scale to 0
+
+  Serial.println("After setting up the scale:");
+  Serial.print("read: \t\t");
+  Serial.println(scale.read());                 // print a raw reading from the ADC
+  Serial.print("read average: \t\t");
+  
+  ESP.wdtDisable();
+  Serial.println(scale.read_average(20));       // print the average of 20 readings from the ADC
+  ESP.wdtEnable(2000);
+
+  Serial.print("get value: \t\t");
+  
+  ESP.wdtDisable();
+  Serial.println(scale.get_value(5));   // print the average of 5 readings from the ADC minus the tare weight, set with tare()
+  ESP.wdtEnable(2000);
+
+  Serial.print("get units: \t\t");
+ 
+  ESP.wdtDisable();
+  Serial.println(scale.get_units(5), 1);        // print the average of 5 readings from the ADC minus tare weight, divided
+  // by the SCALE parameter set with set_scale
+  ESP.wdtEnable(2000);
+
+  Serial.println("Readings:");
+  
+  
 }
-
-
+ 
+ 
+void loop() {
+  
+  float raw = scale.get_units(20); 
+  float w = raw/10;
+  
+  if ( w < 65 ) {
+     Serial.println("Too Light!");
+     Serial.print("Weight: ");
+     Serial.print(w);
+     Serial.println("KG");
+    } else {
+     Serial.print("Weight: ");
+     Serial.print(w);
+     Serial.println("KG");
+    
+ 
+   (client.connect(server,80)); {  //   "184.106.153.149" or api.thingspeak.com
+    String postStr = apiKey;
+           postStr +="&field1=";
+           postStr += String(w);
+           postStr += "\r\n\r\n";
+ 
+     client.print("POST /update HTTP/1.1\n"); 
+     client.print("Host: api.thingspeak.com\n"); 
+     client.print("Connection: close\n"); 
+     client.print("X-THINGSPEAKAPIKEY: "+apiKey+"\n"); 
+     client.print("Content-Type: application/x-www-form-urlencoded\n"); 
+     client.print("Content-Length: "); 
+     client.print(postStr.length()); 
+     client.print("\n\n"); 
+     client.print(postStr);
+     Serial.println("send to Thingspeak");  
+     Serial.println("Waiting...");    
+     //thingspeak needs minimum 15 sec delay between updates
+     delay(15000);  
+   }
+  }
+  client.stop();
+ 
+  
+}
